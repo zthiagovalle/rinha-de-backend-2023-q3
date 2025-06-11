@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -73,6 +74,31 @@ func (ph *PersonHandler) HandleGetPerson(w http.ResponseWriter, r *http.Request)
 	utils.WriteEntity(w, http.StatusOK, person)
 }
 
+func (ph *PersonHandler) HandleGetPersonsByTerm(w http.ResponseWriter, r *http.Request) {
+	term := r.URL.Query().Get("t")
+	if term == "" {
+		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "term is required"})
+		return
+	}
+
+	limit := 50
+	offset := 0
+
+	persons, err := ph.personStore.GetPersonsByTerm(term, limit, offset)
+	if err != nil {
+		ph.logger.Printf("ERROR: getPersonsByTerm: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	if len(persons) == 0 {
+		utils.WriteEntity(w, http.StatusOK, []any{})
+		return
+	}
+
+	utils.WriteEntity(w, http.StatusOK, persons)
+}
+
 func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Request) {
 	var req createPersonRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -87,10 +113,16 @@ func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	birthDate, err := time.Parse("2006-01-02", *req.BirthDate)
+	if err != nil {
+		ph.logger.Printf("ERROR: parse birthDate: %v", err)
+		utils.WriteJSON(w, http.StatusUnprocessableEntity, utils.Envelope{"error": "nascimento must be in YYYY-MM-DD format"})
+		return
+	}
 	person := &store.Person{
 		Username:  *req.Username,
 		Name:      *req.Name,
-		BirthDate: *req.BirthDate,
+		BirthDate: store.DateOnly{Time: birthDate},
 		Stack:     req.Stack,
 	}
 

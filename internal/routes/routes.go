@@ -11,6 +11,7 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 	r.Get("/contagem-pessoas", app.PersonHandler.HandleCountPersons)
 	r.Get("/pessoas/{id}", app.PersonHandler.HandleGetPerson)
 	r.Get("/pessoas/", app.PersonHandler.HandleGetPerson)
+	r.Get("/pessoas", app.PersonHandler.HandleGetPersonsByTerm)
 	r.Post("/pessoas", app.PersonHandler.HandleCreatePerson)
 
 	return r
