@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/store"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/utils"
 )
@@ -43,6 +45,34 @@ func (ph *PersonHandler) HandleCountPersons(w http.ResponseWriter, r *http.Reque
 	fmt.Fprintf(w, "%d", totalPersons)
 }
 
+func (ph *PersonHandler) HandleGetPerson(w http.ResponseWriter, r *http.Request) {
+	idParam := chi.URLParam(r, "id")
+	if idParam == "" {
+		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "id is required"})
+		return
+	}
+
+	id, err := uuid.Parse(idParam)
+	if err != nil {
+		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"message": "invalid uuid"})
+		return
+	}
+
+	person, err := ph.personStore.GetPersonByID(id)
+	if err != nil {
+		ph.logger.Printf("ERROR: getPersonByID: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	if person == nil {
+		utils.WriteJSON(w, http.StatusNotFound, utils.Envelope{"message": "person not found"})
+		return
+	}
+
+	utils.WriteEntity(w, http.StatusOK, person)
+}
+
 func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Request) {
 	var req createPersonRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -52,7 +82,7 @@ func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := ph.validateCreatePerson(req); err != nil {
-		ph.logger.Printf("ERROR: validate create person: %v", err)
+		ph.logger.Printf("ERROR: validateCreatePerson: %v", err)
 		utils.WriteJSON(w, http.StatusUnprocessableEntity, utils.Envelope{"error": err.Error()})
 		return
 	}
@@ -67,12 +97,11 @@ func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Reque
 	id, err := ph.personStore.CreatePerson(person)
 	if err != nil {
 		if err.Error() == store.ErrPersonUsernameAlreadyExists {
-			ph.logger.Printf("ERROR: create person: %v", err)
 			utils.WriteJSON(w, http.StatusUnprocessableEntity, utils.Envelope{"error": "apelido already exists"})
 			return
 		}
 
-		ph.logger.Printf("ERROR: create person: %v", err)
+		ph.logger.Printf("ERROR: createPerson: %v", err)
 		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
 		return
 	}

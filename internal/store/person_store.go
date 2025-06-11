@@ -10,9 +10,9 @@ import (
 
 type Person struct {
 	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Name      string    `json:"name"`
-	BirthDate string    `json:"birth_date"`
+	Username  string    `json:"apelido"`
+	Name      string    `json:"nome"`
+	BirthDate string    `json:"nascimento"`
 	Stack     *[]string `json:"stack"`
 }
 
@@ -29,6 +29,7 @@ func NewPostgresPersonStore(db *sql.DB) *PostgresPersonStore {
 type PersonStore interface {
 	CountPersons() (int, error)
 	CreatePerson(person *Person) (*uuid.UUID, error)
+	GetPersonByID(id uuid.UUID) (*Person, error)
 }
 
 func (pg *PostgresPersonStore) CountPersons() (int, error) {
@@ -87,4 +88,44 @@ func (pg *PostgresPersonStore) CreatePerson(person *Person) (*uuid.UUID, error) 
 		return nil, err
 	}
 	return &id, nil
+}
+
+func (pg *PostgresPersonStore) GetPersonByID(id uuid.UUID) (*Person, error) {
+	query := `
+	SELECT id, username, name, birth_date
+	FROM persons
+	WHERE id = $1
+	`
+
+	var person Person
+	err := pg.db.QueryRow(query, id).Scan(&person.ID, &person.Username, &person.Name, &person.BirthDate)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	query = `
+	SELECT name
+	FROM person_stacks
+	WHERE person_id = $1
+	`
+	rows, err := pg.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stacks []string
+	for rows.Next() {
+		var stack string
+		if err := rows.Scan(&stack); err != nil {
+			return nil, err
+		}
+		stacks = append(stacks, stack)
+	}
+	person.Stack = &stacks
+
+	return &person, nil
 }
