@@ -9,6 +9,7 @@ func SetupRoutes(app *app.Application) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Get("/contagem-pessoas", app.PersonHandler.HandleCountPersons)
+	r.Post("/pessoas", app.PersonHandler.HandleCreatePerson)
 
 	return r
 }
