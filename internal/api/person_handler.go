@@ -1,22 +1,35 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/store"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/utils"
 )
 
 type PersonHandler struct {
-	logger *log.Logger
+	logger      *log.Logger
+	personStore store.PersonStore
 }
 
-func NewPersonHandler(logger *log.Logger) *PersonHandler {
+func NewPersonHandler(logger *log.Logger, personStore store.PersonStore) *PersonHandler {
 	return &PersonHandler{
-		logger: logger,
+		logger:      logger,
+		personStore: personStore,
 	}
 }
 
 func (ph *PersonHandler) HandleCountPersons(w http.ResponseWriter, r *http.Request) {
-	utils.WriteJSON(w, http.StatusOK, utils.Envelope{"contagem": 10})
+	totalPersons, err := ph.personStore.CountPersons()
+	if err != nil {
+		ph.logger.Printf("ERROR: countPersons: %v", err)
+		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "%d", totalPersons)
 }

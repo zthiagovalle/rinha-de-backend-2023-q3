@@ -29,7 +29,9 @@ func NewApplication() (*Application, error) {
 
 	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
 
-	personHandler := api.NewPersonHandler(logger)
+	personStore := store.NewPostgresPersonStore(pgDB)
+
+	personHandler := api.NewPersonHandler(logger, personStore)
 
 	app := &Application{
 		DB:            pgDB,
