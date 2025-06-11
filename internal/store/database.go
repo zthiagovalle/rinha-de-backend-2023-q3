@@ -4,13 +4,20 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
+	"os"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/pressly/goose/v3"
 )
 
 func Open() (*sql.DB, error) {
-	db, err := sql.Open("pgx", "host=person_db user=postgres password=postgres dbname=postgres port=5432 sslmode=disable")
+	db, err := sql.Open("pgx", fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT")),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("db: open %w", err)
 	}

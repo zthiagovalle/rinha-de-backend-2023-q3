@@ -1,5 +1,5 @@
 services:
-  person_db:
+  db:
     container_name: person_db
     image: bitnami/postgresql:latest
     volumes:
@@ -10,17 +10,29 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
     restart: unless-stopped
 
-  person_api:
+  api:
     container_name: person_api
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=postgres
+      - DB_PORT=5432
     depends_on:
-      - person_db
+      db:
+        condition: service_healthy
 
 volumes:
   person_db_data:
