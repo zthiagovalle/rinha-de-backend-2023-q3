@@ -1,5 +1,5 @@
 services:
-  db:
+  person_db:
     container_name: person_db
     image: bitnami/postgresql:latest
     volumes:
@@ -11,6 +11,16 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
     restart: unless-stopped
+
+  person_api:
+    container_name: person_api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - person_db
 
 volumes:
   person_db_data:
