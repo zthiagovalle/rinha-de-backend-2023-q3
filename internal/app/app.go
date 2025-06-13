@@ -1,17 +1,17 @@
 package app
 
 import (
-	"database/sql"
 	"log"
 	"os"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/api"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/store"
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/migrations"
 )
 
 type Application struct {
-	DB            *sql.DB
+	DB            *pgxpool.Pool
 	Logger        *log.Logger
 	PersonHandler *api.PersonHandler
 }
@@ -22,7 +22,7 @@ func NewApplication() (*Application, error) {
 		return nil, err
 	}
 
-	err = store.MigrateFS(pgDB, migrations.FS, ".")
+	err = store.MigratePool(pgDB, migrations.FS, ".")
 	if err != nil {
 		panic(err)
 	}

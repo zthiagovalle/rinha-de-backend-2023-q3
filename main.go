@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/zthiagovalle/rinha-de-backend-2023-q3/internal/app"
@@ -17,14 +19,14 @@ func main() {
 
 	r := routes.SetupRoutes(app)
 	server := &http.Server{
-		Addr:         ":8080",
+		Addr:         fmt.Sprintf(":%s", os.Getenv("API_PORT")),
 		Handler:      r,
 		IdleTimeout:  time.Minute,
-		ReadTimeout:  10 * time.Second,
+		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 
-	app.Logger.Printf("server runnming on port 8080")
+	app.Logger.Printf("server running on port %s", os.Getenv("API_PORT"))
 
 	err = server.ListenAndServe()
 	if err != nil {

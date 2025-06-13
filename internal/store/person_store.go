@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const dateLayout = "2006-01-02"
@@ -30,10 +32,10 @@ func (d DateOnly) MarshalJSON() ([]byte, error) {
 }
 
 type PostgresPersonStore struct {
-	db *sql.DB
+	db *pgxpool.Pool
 }
 
-func NewPostgresPersonStore(db *sql.DB) *PostgresPersonStore {
+func NewPostgresPersonStore(db *pgxpool.Pool) *PostgresPersonStore {
 	return &PostgresPersonStore{
 		db: db,
 	}
@@ -43,7 +45,7 @@ type PersonStore interface {
 	CountPersons() (int, error)
 	CreatePerson(person *Person) (*uuid.UUID, error)
 	GetPersonByID(id uuid.UUID) (*Person, error)
-	GetPersonsByTerm(term string, limit int, offset int) ([]Person, error)
+	GetPersonsByTerm(term string, limit int) ([]Person, error)
 }
 
 func (pg *PostgresPersonStore) CountPersons() (int, error) {
@@ -54,7 +56,7 @@ func (pg *PostgresPersonStore) CountPersons() (int, error) {
 	FROM persons
 	`
 
-	err := pg.db.QueryRow(query).Scan(&totalPersons)
+	err := pg.db.QueryRow(context.Background(), query).Scan(&totalPersons)
 	if err != nil {
 		return 0, err
 	}
@@ -63,20 +65,14 @@ func (pg *PostgresPersonStore) CountPersons() (int, error) {
 }
 
 func (pg *PostgresPersonStore) CreatePerson(person *Person) (*uuid.UUID, error) {
-	tx, err := pg.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
 	query := `
-	INSERT INTO persons (username, name, birth_date)
-	VALUES ($1, $2, $3)
+	INSERT INTO persons (username, name, birth_date, stack)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id
-		`
+	`
 
 	var id uuid.UUID
-	err = tx.QueryRow(query, person.Username, person.Name, person.BirthDate.Time).Scan(&id)
+	err := pg.db.QueryRow(context.Background(), query, person.Username, person.Name, person.BirthDate.Time, person.Stack).Scan(&id)
 	if err != nil {
 		if strings.Contains(err.Error(), "persons_username_key") {
 			return nil, errors.New(ErrPersonUsernameAlreadyExists)
@@ -84,35 +80,18 @@ func (pg *PostgresPersonStore) CreatePerson(person *Person) (*uuid.UUID, error) 
 		return nil, err
 	}
 
-	if person.Stack != nil && len(*person.Stack) > 0 {
-		for _, stack := range *person.Stack {
-			query = `
-			INSERT INTO person_stacks (person_id, name)
-			VALUES ($1, $2)
-			`
-			_, err = tx.Exec(query, id, stack)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return nil, err
-	}
 	return &id, nil
 }
 
 func (pg *PostgresPersonStore) GetPersonByID(id uuid.UUID) (*Person, error) {
 	query := `
-	SELECT id, username, name, birth_date
+	SELECT id, username, name, birth_date, stack
 	FROM persons
 	WHERE id = $1
 	`
 
 	var person Person
-	err := pg.db.QueryRow(query, id).Scan(&person.ID, &person.Username, &person.Name, &person.BirthDate.Time)
+	err := pg.db.QueryRow(context.Background(), query, id).Scan(&person.ID, &person.Username, &person.Name, &person.BirthDate.Time, &person.Stack)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -120,82 +99,33 @@ func (pg *PostgresPersonStore) GetPersonByID(id uuid.UUID) (*Person, error) {
 		return nil, err
 	}
 
-	query = `
-	SELECT name
-	FROM person_stacks
-	WHERE person_id = $1
-	`
-	rows, err := pg.db.Query(query, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var stacks []string
-	for rows.Next() {
-		var stack string
-		if err := rows.Scan(&stack); err != nil {
-			return nil, err
-		}
-		stacks = append(stacks, stack)
-	}
-	person.Stack = &stacks
-
 	return &person, nil
 }
 
-func (pg *PostgresPersonStore) GetPersonsByTerm(term string, limit int, offset int) ([]Person, error) {
+func (pg *PostgresPersonStore) GetPersonsByTerm(term string, limit int) ([]Person, error) {
 	query := `
-	SELECT p.id, p.username, p.name, p.birth_date
+	SELECT p.id, p.username, p.name, p.birth_date, p.stack
 	FROM persons p
-	LEFT JOIN person_stacks ps ON p.id = ps.person_id
-	WHERE p.username ILIKE '%' || $1 || '%'
-	OR p.name ILIKE '%' || $1 || '%'
-	OR ps.name ILIKE '%' || $1 || '%'
-	GROUP BY p.id, p.username, p.name, p.birth_date
-	ORDER BY p.created_at DESC
-	LIMIT $2 OFFSET $3
+	WHERE searchable ILIKE '%' || $1 || '%'
+	LIMIT $2
 	`
-	rows, err := pg.db.Query(query, term, limit, offset)
+	rows, err := pg.db.Query(context.Background(), query, term, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var persons []Person
+	persons := make([]Person, 0, limit)
 	for rows.Next() {
 		var person Person
-		if err := rows.Scan(&person.ID, &person.Username, &person.Name, &person.BirthDate.Time); err != nil {
+		if err := rows.Scan(&person.ID, &person.Username, &person.Name, &person.BirthDate.Time, &person.Stack); err != nil {
 			return nil, err
 		}
 		persons = append(persons, person)
 	}
 
-	if len(persons) == 0 {
-		return persons, nil
-	}
-
-	for i, person := range persons {
-		query = `
-		SELECT name
-		FROM person_stacks
-		WHERE person_id = $1
-		`
-		rows, err := pg.db.Query(query, person.ID)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		var stacks []string
-		for rows.Next() {
-			var stack string
-			if err := rows.Scan(&stack); err != nil {
-				return nil, err
-			}
-			stacks = append(stacks, stack)
-		}
-		persons[i].Stack = &stacks
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return persons, nil

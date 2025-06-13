@@ -1,15 +1,17 @@
 services:
   db:
     container_name: person_db
-    image: bitnami/postgresql:latest
+    image: postgres:17-alpine
     volumes:
-      - person_db_data:/bitnami/postgresql
+      - person_db_data:/var/lib/postgresql/data
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
     ports:
       - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -19,8 +21,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: 1G
+          cpus: "0.8"
+          memory: "1.6G"
+    network_mode: host
 
   api1:
     container_name: person_api1
@@ -28,9 +31,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080:8080"
     environment:
-      - DB_HOST=db
+      - API_PORT=8080
+      - DB_HOST=localhost
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
@@ -42,8 +46,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "700M"
+          cpus: "0.3"
+          memory: "0.5G"
+    network_mode: host
 
   api2:
     container_name: person_api2
@@ -51,9 +56,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8082:8080"
+      - "8081:8081"
     environment:
-      - DB_HOST=db
+      - API_PORT=8081
+      - DB_HOST=localhost
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
@@ -65,8 +71,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "700M"
+          cpus: "0.3"
+          memory: "0.5G"
+    network_mode: host
 
   nginx:
     image: nginx:latest
@@ -82,8 +89,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.2"
-          memory: "600M"
+          cpus: "0.1"
+          memory: "0.4G"
+    network_mode: host
 
 volumes:
   person_db_data:

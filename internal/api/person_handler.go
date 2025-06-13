@@ -82,9 +82,7 @@ func (ph *PersonHandler) HandleGetPersonsByTerm(w http.ResponseWriter, r *http.R
 	}
 
 	limit := 50
-	offset := 0
-
-	persons, err := ph.personStore.GetPersonsByTerm(term, limit, offset)
+	persons, err := ph.personStore.GetPersonsByTerm(term, limit)
 	if err != nil {
 		ph.logger.Printf("ERROR: getPersonsByTerm: %v", err)
 		utils.WriteJSON(w, http.StatusInternalServerError, utils.Envelope{"error": "internal server error"})
@@ -102,13 +100,11 @@ func (ph *PersonHandler) HandleGetPersonsByTerm(w http.ResponseWriter, r *http.R
 func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Request) {
 	var req createPersonRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ph.logger.Printf("ERROR: decode request body: %v", err)
 		utils.WriteJSON(w, http.StatusBadRequest, utils.Envelope{"error": "invalid request body"})
 		return
 	}
 
 	if err := ph.validateCreatePerson(req); err != nil {
-		ph.logger.Printf("ERROR: validateCreatePerson: %v", err)
 		utils.WriteJSON(w, http.StatusUnprocessableEntity, utils.Envelope{"error": err.Error()})
 		return
 	}
@@ -138,7 +134,7 @@ func (ph *PersonHandler) HandleCreatePerson(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	w.Header().Set("Location", fmt.Sprintf("/persons/%s", id.String()))
+	w.Header().Set("Location", fmt.Sprintf("/pessoas/%s", id.String()))
 	w.WriteHeader(http.StatusCreated)
 }
 
