@@ -4,7 +4,7 @@ services:
     image: postgres:17-alpine
     volumes:
       - person_db_data:/var/lib/postgresql/data
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./pgconfig/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     ports:
       - "5432:5432"
     environment:
@@ -25,8 +25,8 @@ services:
           memory: "1.6G"
     network_mode: host
 
-  api1:
-    container_name: person_api1
+  app-01: &app
+    container_name: person_app_01
     build:
       context: .
       dockerfile: Dockerfile
@@ -50,11 +50,9 @@ services:
           memory: "0.5G"
     network_mode: host
 
-  api2:
-    container_name: person_api2
-    build:
-      context: .
-      dockerfile: Dockerfile
+  app-02:
+    <<: *app
+    container_name: person_app_02
     ports:
       - "8081:8081"
     environment:
@@ -64,25 +62,15 @@ services:
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
       - DB_PORT=5432
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.3"
-          memory: "0.5G"
-    network_mode: host
 
   nginx:
-    image: nginx:latest
+    image: nginx:alpine
     container_name: person_nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api1
-      - api2
+      - app-01
+      - app-02
     ports:
       - "9999:9999"
     restart: unless-stopped
