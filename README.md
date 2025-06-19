@@ -20,6 +20,9 @@ Implementar **4 endpoints** (`POST /pessoas`, `GET /pessoas/{id}`, `GET /pessoas
 
 ---
 
+![image](https://github.com/user-attachments/assets/862de4c2-8798-424b-95b0-7c70df90c689)
+
+
 ## 3 · Otimizações que fizeram diferença
 
 | #   | Técnica                                          | Impacto                                                     |
