@@ -3,7 +3,7 @@ module github.com/zthiagovalle/rinha-de-backend-2023-q3
 go 1.24.3
 
 require (
-	github.com/go-chi/chi/v5 v5.2.1
+	github.com/go-chi/chi/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/pressly/goose/v3 v3.24.3
