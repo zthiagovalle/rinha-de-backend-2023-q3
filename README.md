@@ -1,4 +1,4 @@
-# Rinha de Backend 2023 Q3 – Solução em Go + PostgreSQL
+# Rinha de Backend – Solução em Go + PostgreSQL
 
 ## 1 · Problema
 
